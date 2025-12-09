@@ -18,8 +18,6 @@ pub fn main() {
         .build()
         .unwrap();
 
-    let player_speed = 5;
-
     struct Vector2 {
         x: f32,
         y: f32,
@@ -30,17 +28,25 @@ pub fn main() {
             (self.x.powi(2) + self.y.powi(2)).sqrt()
         }
 
-        fn normalized(&self) -> (f32, f32) {
-            (
-                self.x / self.get_magnitude(),
-                self.y / self.get_magnitude()
-            )
+        fn get_normalized(&self) -> (f32, f32) {
+            let mut normal_x = self.x / self.get_magnitude();
+            if !normal_x.is_finite() {
+                normal_x = 0_f32;
+            }
+
+            let mut normal_y = self.y / self.get_magnitude();
+            if !normal_y.is_finite() {
+                normal_y = 0_f32;
+            }
+
+            (normal_x, normal_y)
         }
     }
 
     struct Player {
         rect: FRect,
         velocity: Vector2,
+        speed: f32,
         color: Color,
     }
 
@@ -56,6 +62,7 @@ pub fn main() {
     let mut player: Player = Player {
         rect: FRect::new(64_f32, 64_f32, 128_f32, 128_f32),
         velocity: Vector2 { x: 0_f32, y: 0_f32 },
+        speed: 5_f32,
         color: Color::RGB(67, 129, 67)
     };
 
@@ -89,10 +96,10 @@ pub fn main() {
             // println!("{}", sc.name());
 
             match sc {
-                Scancode::W => player.velocity.y -= player_speed as f32,
-                Scancode::S => player.velocity.y += player_speed as f32,
-                Scancode::A => player.velocity.x -= player_speed as f32,
-                Scancode::D => player.velocity.x += player_speed as f32,
+                Scancode::W => player.velocity.y -= player.speed,
+                Scancode::S => player.velocity.y += player.speed,
+                Scancode::A => player.velocity.x -= player.speed,
+                Scancode::D => player.velocity.x += player.speed,
                 _ => {}
             }
         }
@@ -100,10 +107,9 @@ pub fn main() {
         player.velocity.x *= 0.85;
         player.velocity.y *= 0.85;
 
-        /*println!("{}",player.velocity.normalized().0);
-
-        player.rect.x += player.velocity.normalized().0;
-        player.rect.y += player.velocity.normalized().1;*/
+        let normalized_velocity = player.velocity.get_normalized();
+        player.rect.x += player.velocity.x * normalized_velocity.0.abs();
+        player.rect.y += player.velocity.y * normalized_velocity.1.abs();
 
         let (window_w, window_h) = canvas.window().size();
         let window_w = window_w as f32;
