@@ -18,7 +18,13 @@ pub enum Element {
     Stone
 }
 
-pub fn draw_square_terrain(arr: &mut [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1], elmnt: Element, size: usize, row: usize, col: usize) {
+pub fn draw_square_terrain(
+    arr: &mut [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1], 
+    elmnt: Element, 
+    size: usize, 
+    row: usize, 
+    col: usize
+) {
     for brush_iy in 0..size{
         for brush_ix in 0..size{
             let x = (col + brush_ix).saturating_sub(size / 2) as usize;
@@ -32,10 +38,13 @@ pub fn draw_square_terrain(arr: &mut [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1], el
     }
 }
 
-pub fn plot_line(
-        arr: &mut [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1], elmnt: Element, size: usize,
-        mut x0: i32, mut y0: i32, x1: i32, y1: i32
-    ) {
+pub fn draw_square_terrain_line(
+    arr: &mut [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1], 
+    elmnt: Element, 
+    size: usize,
+    mut x0: i32, mut y0: i32, 
+    x1: i32, y1: i32
+) {
 
     let dx = (x1 - x0).abs();
     let mut sx = -1; 
@@ -51,7 +60,14 @@ pub fn plot_line(
 
     let mut error = dx + dy;
     loop {
-        draw_square_terrain(arr, elmnt, size as usize, y0 as usize, x0 as usize);
+        draw_square_terrain(
+            arr, 
+            elmnt, 
+            size as usize, 
+            y0.max(0).min(ARRAY_SIZE.1 as i32) as usize, 
+            x0.max(0).min(ARRAY_SIZE.0 as i32) as usize
+        );
+        
         let e2 = 2 * error;
         if e2 >= dy {
             if x0 == x1 {break;}
@@ -95,10 +111,7 @@ pub fn main() {
     let mut brush_size = 1;
 
     let (mut old_mx, mut old_my) = (0, 0);
-    let (mut mx, mut my) = (0, 0);
-
-
-
+    let (mut mx, mut my);
 
     'running: loop {
         canvas.set_draw_color(Color::RGB(64,64,64));
@@ -131,21 +144,35 @@ pub fn main() {
         // Update Loop
         let mouse_state = event_pump.mouse_state();
         if mouse_state.left() || mouse_state.right() {
-            mx = (mouse_state.x() as usize) / ARRAY_WINDOW_SCALE;
-            my = (mouse_state.y() as usize) / ARRAY_WINDOW_SCALE;
+            mx = (mouse_state.x() / (ARRAY_WINDOW_SCALE as f32)) as i32;
+            my = (mouse_state.y() / (ARRAY_WINDOW_SCALE as f32)) as i32;
 
             let mut elmnt = element_to_draw;
             if mouse_state.right() {
                 elmnt = Element::Air;
             }
-            plot_line(&mut matrix, elmnt, brush_size, old_mx as i32, old_my as i32, mx as i32, my as i32);
+
+            if old_mx == -1 || old_my == -1 {
+                /*draw_square_terrain(
+                    &mut matrix, elmnt, brush_size, 
+                    old_mx, old_my
+                );*/
+            }else{
+                draw_square_terrain_line(
+                    &mut matrix, elmnt, brush_size, 
+                    old_mx, old_my, 
+                    mx, my
+                );
+            }
+
+            old_mx = mx;
+            old_my = my;
 
             //println!("Left click at col {} row {}!", m_col, m_row);
+        }else {
+            old_mx = -1;
+            old_my = -1;
         }
-        
-        // Fix drawing complete lines when mouse goes down
-        old_mx = mx;
-        old_my = my;
         
 
         //reverse because if not we'd update the same sand all the way till it hits the ground
