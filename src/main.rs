@@ -3,10 +3,12 @@ extern crate sdl3;
 use sdl3::pixels::Color;
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
-use sdl3::rect::Rect;
+use sdl3::render::FRect;
 use std::time::Duration;
 
 // Game Variables
+const FRAMERATE: u32 = 0;
+
 const ARRAY_SIZE: (usize, usize) = (320, 240);
 const ARRAY_WINDOW_SCALE: usize = 4;
 
@@ -107,15 +109,41 @@ pub fn main() {
     let mut matrix: [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1] = 
         [[Element::Air; ARRAY_SIZE.0]; ARRAY_SIZE.1];
 
+    let texture_creator = canvas.texture_creator();
+    let mut matrix_texture = texture_creator
+        .create_texture_streaming(
+            sdl3::pixels::PixelFormat::RGB24,
+            ARRAY_SIZE.0 as u32,
+            ARRAY_SIZE.1 as u32
+        )
+        .unwrap();
+    matrix_texture.set_scale_mode(sdl3::render::ScaleMode::Nearest);
+
+    // A block of memory WE hold onto, bypassing the communication we'd have to do with the gpu using .with_lock()
+    let mut matrix_texture_buffer = vec![0u8; ARRAY_SIZE.0 * ARRAY_SIZE.1 * 3];
+
+
     let mut element_to_draw = Element::Sand;
     let mut brush_size = 1;
 
     let (mut old_mx, mut old_my) = (0, 0);
-    let (mut mx, mut my);
+    let (mut mx, mut my);    
+    
+    // Delta Time
+    let performance_frequency = sdl3::timer::performance_frequency();
+    let mut last_counter_value = sdl3::timer::performance_counter();
 
     'running: loop {
-        canvas.set_draw_color(Color::RGB(64,64,64));
-        canvas.clear();
+        let frame_start = std::time::Instant::now();
+
+        let current_counter_value = sdl3::timer::performance_counter();
+        let delta_ticks = current_counter_value - last_counter_value;
+        
+        let delta_time = delta_ticks as f64 / performance_frequency as f64;
+
+        last_counter_value = current_counter_value;
+
+        println!("FPS: {}", 1.0 / delta_time);
 
         // Event Loop
         for event in event_pump.poll_iter() {
@@ -243,32 +271,59 @@ pub fn main() {
         }
 
 
+
         // Draw Loop
-        for (row_i, row) in matrix.iter().enumerate() {
-            for (col_i, col) in row.iter().enumerate() {
-                canvas.set_draw_color(Color::RGB(64,64,64));
-                if matches!(*col, Element::Sand){
-                    canvas.set_draw_color(Color::RGB(255,255,64));
-                }
-                if matches!(*col, Element::Water){
-                    canvas.set_draw_color(Color::RGB(64,128,255));
-                }
-                if matches!(*col, Element::Stone){
-                    canvas.set_draw_color(Color::RGB(128,128,128));
-                }
-                canvas.fill_rect(
-                    Rect::new(
-                        (col_i * ARRAY_WINDOW_SCALE) as i32, 
-                        (row_i * ARRAY_WINDOW_SCALE) as i32, 
-                        ARRAY_WINDOW_SCALE as u32, 
-                        ARRAY_WINDOW_SCALE as u32
-                    )
-                ).unwrap();
-            }   
+
+
+        ////////
+        // TEXTURE CODE
+        // Calling fill_rect EVERY time for EVERY pixel is REALLY expensive
+        for y in 0..ARRAY_SIZE.1 {
+            for x in 0..ARRAY_SIZE.0 {
+                let offset = (y * ARRAY_SIZE.0 + x) * 3;
+
+                let (r,g,b) = match matrix[y][x] {
+                    Element::Sand => (255,255,64),
+                    Element::Water => (64,128,255),
+                    Element::Stone => (128,128,128),
+                    _ => (64,64,64)
+                };
+
+                matrix_texture_buffer[offset] = r;
+                matrix_texture_buffer[offset+1] = g;
+                matrix_texture_buffer[offset+2] = b;
+            }
         }
 
+        matrix_texture.update(
+            None, 
+            &matrix_texture_buffer, 
+            ARRAY_SIZE.0*3
+        ).unwrap();
+
+
+        canvas.copy(
+            &matrix_texture,
+            None,
+            Some(
+                FRect::new(
+                    0f32, 
+                    0f32, 
+                    canvas.window().size().0 as f32, 
+                    canvas.window().size().1 as f32
+                )
+            )
+        ).unwrap();
+
+
         canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         
+        if FRAMERATE > 0{
+            let target_frame_time = Duration::new(0, 1_000_000_000u32 / FRAMERATE);
+            let frame_duration = frame_start.elapsed();
+            if frame_duration < target_frame_time {
+                std::thread::sleep(target_frame_time - frame_duration);
+            }
+        }
     }
 }
