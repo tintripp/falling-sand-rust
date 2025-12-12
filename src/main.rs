@@ -1,10 +1,12 @@
 extern crate sdl3;
+mod player;
 
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 use sdl3::render::FRect;
 use std::time::Duration;
 use rand::Rng;
+use player::Player;
 
 // Game Variables
 const FRAMERATE: u32 = 60;
@@ -19,6 +21,7 @@ pub enum Element {
     Water,
     Lava,
     Stone,
+    WinArea,
     Grass
 }
 
@@ -146,6 +149,8 @@ pub fn main() {
     let mut matrix: [[Element; ARRAY_SIZE.0]; ARRAY_SIZE.1] = 
         [[Element::Air; ARRAY_SIZE.0]; ARRAY_SIZE.1];
 
+    let mut slim = Player { x: 5 };
+
     let texture_creator = canvas.texture_creator();
     let mut matrix_texture = texture_creator
         .create_texture_streaming(
@@ -206,6 +211,7 @@ pub fn main() {
                 Event::KeyDown { keycode: Some(Keycode::_3), .. } => element_to_draw = Element::Stone,
                 Event::KeyDown { keycode: Some(Keycode::_4), .. } => element_to_draw = Element::Lava,
                 Event::KeyDown { keycode: Some(Keycode::_5), .. } => element_to_draw = Element::Grass,
+                Event::KeyDown { keycode: Some(Keycode::_6), .. } => element_to_draw = Element::WinArea,
                 Event::KeyDown { keycode: Some(Keycode::_0), .. } => element_to_draw = Element::Air,
 
 
@@ -345,6 +351,10 @@ pub fn main() {
         }
 
 
+        // Update Player
+        slim.update();
+
+
 
         // Draw Loop
 
@@ -357,7 +367,8 @@ pub fn main() {
                 let offset = (y * ARRAY_SIZE.0 + x) * 3;
 
                 let (r,g,b) = match matrix[y][x] {
-                    Element::Sand => (255,255,0),
+                    Element::Sand => (159,83,0),
+                    Element::WinArea => (255,255,0),
                     Element::Water => (0,0,255),
                     Element::Lava => (255,0,0),
                     Element::Grass => (0,255,85),
